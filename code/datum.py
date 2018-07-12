@@ -36,23 +36,12 @@ class Datum:
         self.feature_data = np.array([0])
         self.code_tag = []
         self.dimension = 32
-        # indicator name
-        self.indicator = list(pd.read_csv(data_dir + 'stock_data/1_feature.csv').columns)[1:]
         
-        if param is not None:
-            self.param = param
-            # stat_date, end_date: date for indicator optimization model
-            self.start_date = int(self.param.split('_')[1][:8])
-            self.end_date = int(self.param.split('_')[1][8:])
-            
-            self.select_date = []
-            # emb_start, emb_end: date for embedding
-            self.emb_start = int(self.param.split('_')[0][:8]) // 10000
-            self.emb_end = int(self.param.split('_')[0][8:]) // 10000
-            for year in range(self.emb_start * 10000, self.emb_end * 10000, 10000):
-                for month_day in [0, 400, 700, 1000]:
-                    self.select_date.append(year + month_day)
-            self.select_date.append(self.emb_end * 10000)     
+        self.select_date = []
+        for year in range(2008 * 10000, 2017 * 10000, 10000):
+            for month_day in [0, 400, 700, 1000]:
+                self.select_date.append(year + month_day)
+        self.select_date.append(2017 * 10000) 
             
     def data_prepare(self):
         # holding data to matrix
@@ -79,23 +68,20 @@ class Datum:
         for date in raw_dates:
             if date not in list_dates:
                 list_dates.append(date)
-        for stock in raw_stocks:
-            stock = stock.split('.')[0]
-            if stock not in list_stocks:
-                list_stocks.append(stock)
 
         self.list_funds = list_funds
-        self.list_stocks = list_stocks
+        self.list_stocks = np.load(data_dir+'stock_list.npy').tolist()
 
         select_date = np.array(self.select_date)[:-1]
-
-        self.list_funds = list_funds
-        self.list_stocks = list_stocks      
+      
         self.weight_matrix = np.zeros((len(select_date), len(self.list_stocks), len(self.list_funds)))
 
         for ind in range(len(raw_funds)):
+            try:
+                stock_index = self.list_stocks.index(raw_stocks[ind].split('.')[0])
+            except:
+                continue
             fund_index = self.list_funds.index(raw_funds[ind])
-            stock_index = self.list_stocks.index(raw_stocks[ind].split('.')[0])
             time_index = np.where(select_date < raw_dates[ind])[0][-1]
             self.weight_matrix[time_index, stock_index, fund_index] = raw_values[ind]                
             
@@ -111,53 +97,36 @@ class Datum:
                 name = ele[4] + '-' + ele[2]
                 if name not in self.dict_code2name[ele[0]].split(';'):
                     self.dict_code2name[ele[0]] += name+';'
-        
-    def graph2file(self):
-        # matrix to csv
-        for weight_index, weight in enumerate(self.weight_matrix):
-            arr_tmp = []
-            for stock_index in range(len(self.list_stocks)):
-                a_edge_index = np.where(weight[stock_index] != 0)[0]
-                for edge_index in a_edge_index:
-                    arr_tmp.append([stock_index, len(self.list_stocks) + edge_index, weight[stock_index, edge_index]])
-            arr_tmp = np.array(arr_tmp)
-            pd_tmp = pd.DataFrame(arr_tmp)
-            pd_tmp[0] = pd_tmp[0].astype(int)
-            pd_tmp[1] = pd_tmp[1].astype(int)
-            pd_tmp.to_csv(data_dir + 'graph/graph_' + str(weight_index) + '.csv', index=False, sep=' ')
             
-    def get_embedding(self):
-        # get the created embedding
-        total_embedding = np.array(pd.read_csv(data_dir + 'embedding/embedding_'+self.param+'.emb', header=None, sep=' ', skiprows=1))
-        use_index = np.load(data_dir + 'embedding/stable_index_'+self.param+'.npy')
-        self.list_stocks = [self.list_stocks[i] for i in use_index]
-        self.embedding = np.zeros((len(self.list_funds)+len(self.list_stocks), total_embedding.shape[1]-1))
+    def get_embedding(self, file_name):
+        total_embedding = np.array(pd.read_csv(data_dir+'embedding/'+file_name+'.emb', header=None, sep=' ', skiprows=1))
+        # use_index = np.load('/data/zhige_data/embedding_rotation/embedding/stable_index_'+self.param+'.npy')
+        # self.list_stocks = [self.list_stocks[i] for i in use_index]
+        self.embedding = np.zeros((len(self.list_stocks), total_embedding.shape[1]-1))
         for emb in total_embedding:
             self.embedding[int(emb[0])] = emb[1:]
+        self.use_index = total_embedding[:, 0].astype(int)
             
-    def supervised_data_prepare(self):
-        # price and feature data save
+    def supervised_data_prepare(self, start_date, end_date):
         self.price_data = []
         self.feature_data = []
         for count, code in enumerate(self.list_stocks):
-            a_p, a_f = get_data(self.start_date, self.end_date, int(code))
+            a_p, a_f = get_data(start_date, end_date, int(code))
             self.price_data.append(a_p)
             self.feature_data.append(a_f)
         self.price_data = np.array(self.price_data)
-        self.feature_data = np.array(self.feature_data).astype(float)
+        self.feature_data = np.array(self.feature_data)
         
-    def ic_prepare(self):
-        # calculated correlation(IC)
-        day_need = get_data(self.start_date, self.end_date, 1)[0].shape[0]
+    def ic_prepare(self, start_date, end_date):
+        day_need = get_data(start_date, end_date, 1)[0].shape[0]
         self.ar_ic = np.zeros((len(self.list_stocks), day_need, 4))
         # mkt1, 3, 5, 10
         for count, code in enumerate(self.list_stocks):
-            a_p, a_f = get_data(self.start_date, self.end_date+20, code)
+            a_p, a_f = get_data(start_date, end_date+30, code)
             a_p = a_p[:day_need+11]
             for day in range(day_need):
                 for look_count, look_after in enumerate([1, 3, 5, 10]):
                     self.ar_ic[count, day, look_count] = (a_p[day+1+look_after] - a_p[day+1]) / a_p[day+1]
-                    
 
                 
         

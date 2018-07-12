@@ -2,3 +2,5 @@
 *.ipynb
 .ipynb*
 *.png
+_*
+*.npy
