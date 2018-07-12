@@ -7,17 +7,18 @@ import os
 import graph
 import networkx as nx
 
+data_dir = '../data/'
 
 def get_data(start_date, end_date, stock_code):
     # get the data, the stock_data directory is extracted from /data/AMC/stock_feature and /data/AMC/stock_price
-    price_csv = pd.read_csv('/data/zhige_data/embedding_simpyear/stock_data/'+str(int(stock_code))+'_price.csv')
+    price_csv = pd.read_csv(data_dir + 'stock_data/'+str(int(stock_code))+'_price.csv')
     dates = np.array(price_csv['TradingDay'])
     for count in range(len(dates)):
         dates[count] = int(''.join(str(dates[count]).split()[0].split('-')))
     select_index = np.where((dates >= start_date) & (dates < end_date))[0]
     return_price = np.array(price_csv['ClosePrice'][select_index])
     
-    feature_csv = pd.read_csv('/data/zhige_data/embedding_simpyear/stock_data/'+str(int(stock_code))+'_feature.csv')
+    feature_csv = pd.read_csv(data_dir + 'stock_data/'+str(int(stock_code))+'_feature.csv')
     dates = np.array(feature_csv['trading_day'])
     for count in range(len(dates)):
         dates[count] = int(''.join(str(dates[count]).split()[0].split('-')))
@@ -36,7 +37,7 @@ class Datum:
         self.code_tag = []
         self.dimension = 32
         # indicator name
-        self.indicator = list(pd.read_csv('/data/zhige_data/embedding_simpyear/stock_data/1_feature.csv').columns)[1:]
+        self.indicator = list(pd.read_csv(data_dir + 'stock_data/1_feature.csv').columns)[1:]
         
         if param is not None:
             self.param = param
@@ -55,7 +56,7 @@ class Datum:
             
     def data_prepare(self):
         # holding data to matrix
-        fundhold = pd.read_csv('/data/zhige_data/embedding_simpyear/mutualfundholding.csv')
+        fundhold = pd.read_csv(data_dir + 'mutualfundholding.csv')
 
         fund = np.array(fundhold)[:, 0]
         date = np.array(fundhold)[:, 1]
@@ -99,7 +100,7 @@ class Datum:
             self.weight_matrix[time_index, stock_index, fund_index] = raw_values[ind]                
             
         # stock code to Chinese
-        industry = pd.read_csv('/data/zhige_data/embedding_simpyear/industry.csv')
+        industry = pd.read_csv(data_dir + 'industry.csv')
         for ele in np.array(industry):
             ele[0] = str(ele[0])
             for _ in range(6-len(ele[0])):
@@ -123,12 +124,12 @@ class Datum:
             pd_tmp = pd.DataFrame(arr_tmp)
             pd_tmp[0] = pd_tmp[0].astype(int)
             pd_tmp[1] = pd_tmp[1].astype(int)
-            pd_tmp.to_csv('/data/zhige_data/embedding_simpyear/graph/graph_' + str(weight_index) + '.csv', index=False, sep=' ')
+            pd_tmp.to_csv(data_dir + 'graph/graph_' + str(weight_index) + '.csv', index=False, sep=' ')
             
     def get_embedding(self):
         # get the created embedding
-        total_embedding = np.array(pd.read_csv('/data/zhige_data/embedding_simpyear/embedding/embedding_'+self.param+'.emb', header=None, sep=' ', skiprows=1))
-        use_index = np.load('/data/zhige_data/embedding_simpyear/embedding/stable_index_'+self.param+'.npy')
+        total_embedding = np.array(pd.read_csv(data_dir + 'embedding/embedding_'+self.param+'.emb', header=None, sep=' ', skiprows=1))
+        use_index = np.load(data_dir + 'embedding/stable_index_'+self.param+'.npy')
         self.list_stocks = [self.list_stocks[i] for i in use_index]
         self.embedding = np.zeros((len(self.list_funds)+len(self.list_stocks), total_embedding.shape[1]-1))
         for emb in total_embedding:
