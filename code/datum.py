@@ -52,7 +52,7 @@ class Datum:
         stock = np.array(fundhold)[:, 3]
         value = np.array(fundhold)[:, 4]
 
-        index = np.where((date >= self.emb_start*10000) & (date <= self.emb_end*10000))[0]
+        index = np.where((date >= 20080000) & (date <= 20170000))[0]
 
         raw_funds = fund[index]
         raw_dates = date[index]
