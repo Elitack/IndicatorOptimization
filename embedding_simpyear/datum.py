@@ -11,14 +11,14 @@ data_dir = '../data/'
 
 def get_data(start_date, end_date, stock_code):
     # get the data, the stock_data directory is extracted from /data/AMC/stock_feature and /data/AMC/stock_price
-    price_csv = pd.read_csv(data_dir + 'stock_data/'+str(int(stock_code))+'_price.csv')
+    price_csv = pd.read_csv(data_dir + 'stock_data/'+str(int(stock_code))+'_price.csv', encoding="ISO-8859-1")
     dates = np.array(price_csv['TradingDay'])
     for count in range(len(dates)):
         dates[count] = int(''.join(str(dates[count]).split()[0].split('-')))
     select_index = np.where((dates >= start_date) & (dates < end_date))[0]
     return_price = np.array(price_csv['ClosePrice'][select_index])
     
-    feature_csv = pd.read_csv(data_dir + 'stock_data/'+str(int(stock_code))+'_feature.csv')
+    feature_csv = pd.read_csv(data_dir + 'stock_data/'+str(int(stock_code))+'_feature.csv', encoding="ISO-8859-1")
     dates = np.array(feature_csv['trading_day'])
     for count in range(len(dates)):
         dates[count] = int(''.join(str(dates[count]).split()[0].split('-')))
