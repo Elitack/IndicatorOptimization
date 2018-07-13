@@ -88,7 +88,7 @@ def embedding(emb, output_name):
     walks = G.simulate_walks(200, 200)
     walks = [list(map(str, walk)) for walk in walks]
     
-    model = Word2Vec(true_walks, size=32, window=6, min_count=0, sg=1, workers=2, iter=30)
+    model = Word2Vec(walks, size=32, window=6, min_count=0, sg=1, workers=2, iter=30)
     model.wv.save_word2vec_format(data_dir + 'embedding/{}.emb'.format(output_name))
         
     # embedding_cluster('{}_{}_{}'.format(
