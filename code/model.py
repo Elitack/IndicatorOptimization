@@ -126,23 +126,7 @@ class Model():
         saver = tf.train.Saver(max_to_keep=50)
         with tf.Session() as sess:
             saver.restore(sess, data_dir+'{}model_{}/logmodel.ckpt'.format(self.param))
-            rank_ic = np.zeros((self.vali_test-self.train_vali, 44, 4))
-            embedding = self.data.embedding[self.data.use_index, :]
-            for count_day, day in enumerate(range(self.train_vali,self.vali_test)):#batch_num
-                for fac_idx in range(44):
-                    feature = self.data.feature_data[self.data.use_index, day, fac_idx]
-                    if feature.std() != 0:
-                        feature = (feature-feature.min()) / (feature.max() - feature.min())
-                    else:
-                        continue
-                    label = self.data.ar_ic[self.data.use_index, day, 2]
-                    feed_dict = {self.embedding: embedding, self.factor: feature, self.factor_index: [fac_idx], self.ic: label}
-                    new_f, loss_val = sess.run([self.new_f, self.cost], feed_dict=feed_dict)
-                    for ic_idx in range(4):
-                        rank_ic[count_day, fac_idx, ic_idx] = stats.spearmanr(self.data.ar_ic[self.data.use_index, day, ic_idx], new_f)[0]
-            vali_ic_mean = rank_ic.mean(axis=0)[:, 2]
-            vali_ic_mean = np.nan_to_num(vali_ic_mean / np.abs(vali_ic_mean))
-            
+           
             rank_ic = np.zeros((self.day_sample-self.vali_test, 44, 4))
             embedding = self.data.embedding[self.data.use_index, :]
             print('test: model:{}')
@@ -159,19 +143,8 @@ class Model():
                     for ic_idx in range(4):
                         rank_ic[count_day, fac_idx, ic_idx] = stats.spearmanr(self.data.ar_ic[self.data.use_index, day, ic_idx], new_f)[0]
             avg_ic = rank_ic.mean(axis=0)[:, 2]
-            print(avg_ic*vali_ic_mean)     
-            print((avg_ic*vali_ic_mean).mean())
             print(np.abs(avg_ic).mean())
-            pd.DataFrame(np.abs(avg_ic)).to_csv(data_dir+'{}model_{}/test.csv'.format(self.param))  
-
-            rank_ic = np.zeros((self.vali_test-self.train_vali, 44, 4))
-            for count_day, day in enumerate(range(self.train_vali,self.vali_test)):#batch_num
-                for fac_idx in range(44):
-                    feature = self.data.feature_data[self.data.use_index, day, fac_idx]
-                    for ic_idx in range(4):
-                        rank_ic[count_day, fac_idx, ic_idx] = np.nan_to_num(stats.spearmanr(self.data.ar_ic[self.data.use_index, day, ic_idx], feature)[0])
-            vali_ic_mean = rank_ic.mean(axis=0)[:, 2]
-            vali_ic_mean = np.nan_to_num(vali_ic_mean / np.abs(vali_ic_mean))             
+            pd.DataFrame(np.abs(avg_ic)).to_csv(data_dir+'{}model_{}/test.csv'.format(self.param))              
             
             rank_ic = np.zeros((self.day_sample-self.vali_test, 44, 4))
             for count_day, day in enumerate(range(self.vali_test, self.day_sample)):#batch_num
@@ -180,8 +153,6 @@ class Model():
                     for ic_idx in range(4):
                         rank_ic[count_day, fac_idx, ic_idx] = np.nan_to_num(stats.spearmanr(self.data.ar_ic[self.data.use_index, day, ic_idx], feature)[0])
             avg_ic = rank_ic.mean(axis=0)[:, 2]
-            print(avg_ic*vali_ic_mean)     
-            print((avg_ic*vali_ic_mean).mean())  
             print(np.abs(avg_ic).mean())            
             pd.DataFrame(np.abs(avg_ic)).to_csv(data_dir+'{}model_{}/test_baseline.csv'.format(self.param))              
             
