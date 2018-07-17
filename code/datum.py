@@ -103,9 +103,12 @@ class Datum:
         # use_index = np.load('/data/zhige_data/embedding_rotation/embedding/stable_index_'+self.param+'.npy')
         # self.list_stocks = [self.list_stocks[i] for i in use_index]
         self.embedding = np.zeros((len(self.list_stocks), total_embedding.shape[1]-1))
+        self.use_index = []
         for emb in total_embedding:
-            self.embedding[int(emb[0])] = emb[1:]
-        self.use_index = total_embedding[:, 0].astype(int)
+            if int(emb[0]) < len(self.list_stocks):
+                self.embedding[int(emb[0])] = emb[1:]
+                self.use_index.append(int(emb[0]))
+        self.use_index = np.array(self.use_index)
             
     def supervised_data_prepare(self, start_date, end_date):
         self.price_data = []

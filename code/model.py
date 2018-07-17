@@ -125,7 +125,7 @@ class Model():
     def test(self):
         saver = tf.train.Saver(max_to_keep=50)
         with tf.Session() as sess:
-            saver.restore(sess, data_dir+'{}model_{}/logmodel.ckpt'.format(self.param))
+            saver.restore(sess, data_dir+'model_{}/logmodel.ckpt'.format(self.param))
            
             rank_ic = np.zeros((self.day_sample-self.vali_test, 44, 4))
             embedding = self.data.embedding[self.data.use_index, :]
@@ -144,7 +144,7 @@ class Model():
                         rank_ic[count_day, fac_idx, ic_idx] = stats.spearmanr(self.data.ar_ic[self.data.use_index, day, ic_idx], new_f)[0]
             avg_ic = rank_ic.mean(axis=0)[:, 2]
             print(np.abs(avg_ic).mean())
-            pd.DataFrame(np.abs(avg_ic)).to_csv(data_dir+'{}model_{}/test.csv'.format(self.param))              
+            pd.DataFrame(np.abs(avg_ic)).to_csv(data_dir+'model_{}/test.csv'.format(self.param))              
             
             rank_ic = np.zeros((self.day_sample-self.vali_test, 44, 4))
             for count_day, day in enumerate(range(self.vali_test, self.day_sample)):#batch_num
@@ -154,7 +154,7 @@ class Model():
                         rank_ic[count_day, fac_idx, ic_idx] = np.nan_to_num(stats.spearmanr(self.data.ar_ic[self.data.use_index, day, ic_idx], feature)[0])
             avg_ic = rank_ic.mean(axis=0)[:, 2]
             print(np.abs(avg_ic).mean())            
-            pd.DataFrame(np.abs(avg_ic)).to_csv(data_dir+'{}model_{}/test_baseline.csv'.format(self.param))              
+            pd.DataFrame(np.abs(avg_ic)).to_csv(data_dir+'model_{}/test_baseline.csv'.format(self.param))              
             
 
 
