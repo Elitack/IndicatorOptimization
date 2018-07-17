@@ -20,7 +20,7 @@ data_index = 0
 len_stock = 3145
 len_fund  = 2199
 
-data_dir = '/data/zhige_data/embedding_simpyear/'
+data_dir = '../data/result/'
 
 class Model():
     def __init__(self, learning_rate_rank, param):
@@ -45,10 +45,10 @@ class Model():
     def factor_network(self):
         learning_rate = self.learning_rate
         
-        self.embedding = tf.placeholder(tf.float32, shape=[len(self.data.list_stocks), 32], name='embedding')
-        self.factor = tf.placeholder(tf.float32, shape=[len(self.data.list_stocks)], name='factor')
+        self.embedding = tf.placeholder(tf.float32, shape=[len(self.data.use_index), 32], name='embedding')
+        self.factor = tf.placeholder(tf.float32, shape=[len(self.data.use_index)], name='factor')
         self.factor_index = tf.placeholder(tf.int32, shape=[1], name='factor_index')
-        self.ic = tf.placeholder(tf.float32, shape=[len(self.data.list_stocks)], name='ic')
+        self.ic = tf.placeholder(tf.float32, shape=[len(self.data.use_index)], name='ic')
         
         self.u_bias = tf.get_variable('u_bias', shape=[44, 32], initializer=tf.truncated_normal_initializer(stddev=1.0))
         
@@ -74,166 +74,127 @@ class Model():
     def training(self):
         epochs = 1000
         batch_num = self.train_vali // self.batch_size
-        for model_num in range(0, 1):
-            saver = tf.train.Saver(max_to_keep=None)
-            with tf.Session() as sess:
-                tf.global_variables_initializer().run()
-                for fac_idx in range(44):
-                    print('factor: {}'.format(fac_idx))
-                    vali_loss_max = np.inf
-                    tolerance = 10
-                    for epoch in range(epochs):
-                        loss_all = 0
-                        loss_count = 1
-                        embedding = self.data.embedding[:len(self.data.list_stocks), :]
-                        for count_day, day in enumerate(range(self.train_vali,self.vali_test)):#batch_num
-                            feature = self.data.feature_data[:, day, fac_idx]
-                            if feature.std() != 0:
-                                feature = (feature-feature.min()) / (feature.max() - feature.min())
-                            else:
-                                continue
-                            label = self.data.ar_ic[:, day, 2]
-                            feed_dict = {self.embedding: embedding, self.factor: feature, self.factor_index: [fac_idx], self.ic: label}
-                            new_f, loss_val = sess.run([self.new_f, self.cost], feed_dict=feed_dict)
-                            loss_all += loss_val
-                            loss_count += 1             
-                        avg_loss = loss_all / loss_count
-                        if vali_loss_max > avg_loss:
-                            vali_loss_max = avg_loss
-                            tolerance = 10
+        saver = tf.train.Saver(max_to_keep=None)
+        with tf.Session() as sess:
+            tf.global_variables_initializer().run()
+            for fac_idx in range(44):
+                print('factor: {}'.format(fac_idx))
+                vali_loss_max = np.inf
+                tolerance = 3
+                for epoch in range(epochs):
+                    loss_all = 0
+                    loss_count = 1
+                    embedding = self.data.embedding[self.data.use_index, :]
+                    for count_day, day in enumerate(range(self.train_vali,self.vali_test)):#batch_num
+                        feature = self.data.feature_data[self.data.use_index, day, fac_idx]
+                        if feature.std() != 0:
+                            feature = (feature-feature.min()) / (feature.max() - feature.min())
                         else:
-                            if tolerance == 0:
-                                break
-                            else:
-                                tolerance = tolerance - 1
-                        np.random.shuffle(self.rank_day)
-                        embedding = self.data.embedding[:len(self.data.list_stocks), :]
-                        for count_day, day in enumerate(self.rank_day):#batch_num
-                            feature = self.data.feature_data[:, day, fac_idx]
-                            if feature.std() != 0:                            
-                                feature = (feature-feature.min()) / (feature.max() - feature.min())
-                            else:
-                                continue
-                            label = self.data.ar_ic[:, day, 2]
-                            feed_dict = {self.embedding: embedding, self.factor: feature, self.factor_index: [fac_idx], self.ic: label}
-                            _, loss_val = sess.run([self.optimizer, self.cost], feed_dict=feed_dict)
-                if not os.path.exists(data_dir+'{}model_{}'.format(model_num, self.param)):
-                    os.mkdir(data_dir+'{}model_{}'.format(model_num, self.param))
-                saver.save(sess, data_dir+'{}model_{}/logmodel.ckpt'.format(model_num, self.param))
-            self.test(model_num)
+                            continue
+                        label = self.data.ar_ic[self.data.use_index, day, 2]
+                        feed_dict = {self.embedding: embedding, self.factor: feature, self.factor_index: [fac_idx], self.ic: label}
+                        new_f, loss_val = sess.run([self.new_f, self.cost], feed_dict=feed_dict)
+                        loss_all += loss_val
+                        loss_count += 1             
+                    avg_loss = loss_all / loss_count
+                    if vali_loss_max > avg_loss:
+                        vali_loss_max = avg_loss
+                        tolerance = 3
+                    else:
+                        if tolerance == 0:
+                            break
+                        else:
+                            tolerance = tolerance - 1
+                    np.random.shuffle(self.rank_day)
+                    embedding = self.data.embedding[self.data.use_index, :]
+                    for count_day, day in enumerate(self.rank_day):#batch_num
+                        feature = self.data.feature_data[self.data.use_index, day, fac_idx]
+                        if feature.std() != 0:                            
+                            feature = (feature-feature.min()) / (feature.max() - feature.min())
+                        else:
+                            continue
+                        label = self.data.ar_ic[self.data.use_index, day, 2]
+                        feed_dict = {self.embedding: embedding, self.factor: feature, self.factor_index: [fac_idx], self.ic: label}
+                        _, loss_val = sess.run([self.optimizer, self.cost], feed_dict=feed_dict)
+            if not os.path.exists(data_dir+'model_{}'.format(self.param)):
+                os.mkdir(data_dir+'model_{}'.format(self.param))
+            saver.save(sess, data_dir+'model_{}/logmodel.ckpt'.format(self.param))
+            self.test()
             
     
-    def test(self, model_num):
+    def test(self):
         saver = tf.train.Saver(max_to_keep=50)
         with tf.Session() as sess:
-            saver.restore(sess, data_dir+'{}model_{}/logmodel.ckpt'.format(model_num, self.param))
+            saver.restore(sess, data_dir+'{}model_{}/logmodel.ckpt'.format(self.param))
             rank_ic = np.zeros((self.vali_test-self.train_vali, 44, 4))
-            embedding = self.data.embedding[:len(self.data.list_stocks), :]
+            embedding = self.data.embedding[self.data.use_index, :]
             for count_day, day in enumerate(range(self.train_vali,self.vali_test)):#batch_num
                 for fac_idx in range(44):
-                    feature = self.data.feature_data[:, day, fac_idx]
+                    feature = self.data.feature_data[self.data.use_index, day, fac_idx]
                     if feature.std() != 0:
                         feature = (feature-feature.min()) / (feature.max() - feature.min())
                     else:
                         continue
-                    label = self.data.ar_ic[:, day, 2]
+                    label = self.data.ar_ic[self.data.use_index, day, 2]
                     feed_dict = {self.embedding: embedding, self.factor: feature, self.factor_index: [fac_idx], self.ic: label}
                     new_f, loss_val = sess.run([self.new_f, self.cost], feed_dict=feed_dict)
                     for ic_idx in range(4):
-                        rank_ic[count_day, fac_idx, ic_idx] = stats.spearmanr(self.data.ar_ic[:, day, ic_idx], new_f)[0]
+                        rank_ic[count_day, fac_idx, ic_idx] = stats.spearmanr(self.data.ar_ic[self.data.use_index, day, ic_idx], new_f)[0]
             vali_ic_mean = rank_ic.mean(axis=0)[:, 2]
             vali_ic_mean = np.nan_to_num(vali_ic_mean / np.abs(vali_ic_mean))
             
             rank_ic = np.zeros((self.day_sample-self.vali_test, 44, 4))
-            embedding = self.data.embedding[:len(self.data.list_stocks), :]
-            print('test: model:{}'.format(model_num))
+            embedding = self.data.embedding[self.data.use_index, :]
+            print('test: model:{}')
             for count_day, day in enumerate(range(self.vali_test, self.day_sample)):#batch_num
                 for fac_idx in range(44):
-                    feature = self.data.feature_data[:, day, fac_idx]
+                    feature = self.data.feature_data[self.data.use_index, day, fac_idx]
                     if feature.std() != 0:
                         feature = (feature-feature.min()) / (feature.max() - feature.min())
                     else:
                         continue
-                    label = self.data.ar_ic[:, day, 2]
+                    label = self.data.ar_ic[self.data.use_index, day, 2]
                     feed_dict = {self.embedding: embedding, self.factor: feature, self.factor_index: [fac_idx], self.ic: label}
                     new_f, loss_val = sess.run([self.new_f, self.cost], feed_dict=feed_dict)
                     for ic_idx in range(4):
-                        rank_ic[count_day, fac_idx, ic_idx] = stats.spearmanr(self.data.ar_ic[:, day, ic_idx], new_f)[0]
+                        rank_ic[count_day, fac_idx, ic_idx] = stats.spearmanr(self.data.ar_ic[self.data.use_index, day, ic_idx], new_f)[0]
             avg_ic = rank_ic.mean(axis=0)[:, 2]
             print(avg_ic*vali_ic_mean)     
             print((avg_ic*vali_ic_mean).mean())
             print(np.abs(avg_ic).mean())
-            pd.DataFrame(np.abs(avg_ic)).to_csv(data_dir+'{}model_{}/test.csv'.format(model_num, self.param))  
+            pd.DataFrame(np.abs(avg_ic)).to_csv(data_dir+'{}model_{}/test.csv'.format(self.param))  
 
             rank_ic = np.zeros((self.vali_test-self.train_vali, 44, 4))
             for count_day, day in enumerate(range(self.train_vali,self.vali_test)):#batch_num
                 for fac_idx in range(44):
-                    feature = self.data.feature_data[:, day, fac_idx]
+                    feature = self.data.feature_data[self.data.use_index, day, fac_idx]
                     for ic_idx in range(4):
-                        rank_ic[count_day, fac_idx, ic_idx] = np.nan_to_num(stats.spearmanr(self.data.ar_ic[:, day, ic_idx], feature)[0])
+                        rank_ic[count_day, fac_idx, ic_idx] = np.nan_to_num(stats.spearmanr(self.data.ar_ic[self.data.use_index, day, ic_idx], feature)[0])
             vali_ic_mean = rank_ic.mean(axis=0)[:, 2]
             vali_ic_mean = np.nan_to_num(vali_ic_mean / np.abs(vali_ic_mean))             
             
             rank_ic = np.zeros((self.day_sample-self.vali_test, 44, 4))
             for count_day, day in enumerate(range(self.vali_test, self.day_sample)):#batch_num
                 for fac_idx in range(44):
-                    feature = self.data.feature_data[:, day, fac_idx]
+                    feature = self.data.feature_data[self.data.use_index, day, fac_idx]
                     for ic_idx in range(4):
-                        rank_ic[count_day, fac_idx, ic_idx] = np.nan_to_num(stats.spearmanr(self.data.ar_ic[:, day, ic_idx], feature)[0])
+                        rank_ic[count_day, fac_idx, ic_idx] = np.nan_to_num(stats.spearmanr(self.data.ar_ic[self.data.use_index, day, ic_idx], feature)[0])
             avg_ic = rank_ic.mean(axis=0)[:, 2]
             print(avg_ic*vali_ic_mean)     
             print((avg_ic*vali_ic_mean).mean())  
             print(np.abs(avg_ic).mean())            
-            pd.DataFrame(np.abs(avg_ic)).to_csv(data_dir+'{}model_{}/test_baseline.csv'.format(model_num, self.param))              
+            pd.DataFrame(np.abs(avg_ic)).to_csv(data_dir+'{}model_{}/test_baseline.csv'.format(self.param))              
             
-    '''                     
-    def test(self):
-        epochs = 50
-        batch_num = self.train_vali // self.batch_size
-        saver = tf.train.Saver(max_to_keep=None)
-        with tf.Session() as sess:
-            for model_num in range(30):
-                saver.restore(sess, 'model-2-5/logmodel-{}.ckpt'.format(model_num))
-                # test
-                new_f_total = []
-                use_index = []
-                for stock_idx in self.use_index:
-                    price = self.data.price_data[stock_idx, self.vali_test:]
-                    feature = self.data.feature_data[stock_idx, self.vali_test:, :]
-                    label = self.data.ar_trend[stock_idx, self.vali_test:, :]
-                    stock_name = str(self.data.code_tag[stock_idx])
-                    for _ in range(6-len(stock_name)):
-                        stock_name = '0' + stock_name                       
-                    embed = np.expand_dims(self.data.embedding[self.data.list_stocks.index(stock_name)], axis=1)
-                    factor_index = random.sample(list(range(44)), 5)
-                    feed_dict = {self.embedding: embed, self.factor: feature.T, self.factor_index: factor_index, self.label: label}
-                    new_f= sess.run(self.evaluation, feed_dict=feed_dict)        
-                    new_f_total.append(new_f)
-                new_f_total = np.array(new_f_total)
-                use_index = self.use_index
-                ic = np.zeros((44, self.day_sample-self.vali_test, 4))
-                for day in range(self.vali_test, self.day_sample):
-                    for fac in range(44):
-                        for id_idx in range(4):
-                            rank_ic = stats.spearmanr(self.data.ar_ic[use_index, day, id_idx], new_f_total[:, day-self.vali_test, fac])
-                            ic[fac, day-self.vali_test, id_idx] = rank_ic[0]
-                ic = ic.mean(axis=1)
-                print(ic)     
-                print(np.abs(ic).mean())
-        self.factor_test = new_f_total            
-
-        
-    '''       
 
 
 if __name__ == '__main__':
-    data = Datum('{}_{}_{}'.format(sys.argv[1], sys.argv[2], sys.argv[3]))
+    data = Datum()
     data.data_prepare()
-    data.get_embedding()
-    data.supervised_data_prepare()
-    data.ic_prepare()
+    data.get_embedding(sys.argv[1])
+    data.supervised_data_prepare(int(sys.argv[2]), int(sys.argv[3]))
+    data.ic_prepare(int(sys.argv[2]), int(sys.argv[3]))
 
-    mod = Model(1, '{}_{}_{}'.format(sys.argv[1], sys.argv[2], sys.argv[3]))
+    mod = Model(2, sys.argv[1])
     mod.data_initial(data)
     mod.data_split()
     mod.factor_network()    
