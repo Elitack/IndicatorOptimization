@@ -116,9 +116,9 @@ class Model():
                         label = self.data.ar_ic[self.data.use_index, day, 2]
                         feed_dict = {self.embedding: embedding, self.factor: feature, self.factor_index: [fac_idx], self.ic: label}
                         _, loss_val = sess.run([self.optimizer, self.cost], feed_dict=feed_dict)
-            if not os.path.exists(data_dir+'model_{}'.format(self.param)):
-                os.mkdir(data_dir+'model_{}'.format(self.param))
-            saver.save(sess, data_dir+'model_{}/logmodel.ckpt'.format(self.param))
+            if not os.path.exists(data_dir+'model-1to1_{}'.format(self.param)):
+                os.mkdir(data_dir+'model-1to1_{}'.format(self.param))
+            saver.save(sess, data_dir+'model-1to1_{}/logmodel.ckpt'.format(self.param))
             self.test()
             
     
