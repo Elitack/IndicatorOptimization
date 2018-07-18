@@ -45,17 +45,19 @@ class Model():
     def factor_network(self):
         learning_rate = self.learning_rate
         
+        self.embedding = tf.placeholder(tf.float32, shape=[len(self.data.use_index), 32], name='embedding')
         self.factor = tf.placeholder(tf.float32, shape=[len(self.data.use_index)], name='factor')
         self.factor_index = tf.placeholder(tf.int32, shape=[1], name='factor_index')
         self.ic = tf.placeholder(tf.float32, shape=[len(self.data.use_index)], name='ic')
         
-        self.scale = tf.get_variable('scale', shape=[44, len(self.data.use_index)], initializer=tf.truncated_normal_initializer(stddev=1.0))
+        self.u_bias = tf.get_variable('u_bias', shape=[44, 32], initializer=tf.truncated_normal_initializer(stddev=1.0))
         
-        self.scale_select = tf.nn.embedding_lookup(self.scale, self.factor_index)
+        self.u_bias_select = tf.nn.embedding_lookup(self.u_bias, self.factor_index)
         
-        self.confidence = tf.exp(self.scale_select) / tf.reduce_sum(tf.exp(self.scale_select))
+        self.hidden = tf.matmul(self.embedding, tf.transpose(self.u_bias_select))
+        self.confidence = tf.exp(self.hidden) / tf.reduce_sum(tf.exp(self.hidden))
         
-        self.new_f = tf.multiply(self.factor, tf.reshape(self.confidence, [-1]))
+        self.new_f = tf.reshape(self.confidence, [-1])
         mean, var = tf.nn.moments(self.new_f, axes=[0])
         self.process_new_f = (self.new_f - mean) / tf.sqrt(var)
         
@@ -90,7 +92,7 @@ class Model():
                         else:
                             continue
                         label = self.data.ar_ic[self.data.use_index, day, 2]
-                        feed_dict = {self.factor: feature, self.factor_index: [fac_idx], self.ic: label}
+                        feed_dict = {self.embedding: embedding, self.factor: feature, self.factor_index: [fac_idx], self.ic: label}
                         new_f, loss_val = sess.run([self.new_f, self.cost], feed_dict=feed_dict)
                         loss_all += loss_val
                         loss_count += 1             
@@ -112,18 +114,18 @@ class Model():
                         else:
                             continue
                         label = self.data.ar_ic[self.data.use_index, day, 2]
-                        feed_dict = {self.factor: feature, self.factor_index: [fac_idx], self.ic: label}
+                        feed_dict = {self.embedding: embedding, self.factor: feature, self.factor_index: [fac_idx], self.ic: label}
                         _, loss_val = sess.run([self.optimizer, self.cost], feed_dict=feed_dict)
-            if not os.path.exists(data_dir+'model-noemb_{}'.format(self.param)):
-                os.mkdir(data_dir+'model-noemb_{}'.format(self.param))
-            saver.save(sess, data_dir+'model-noemb_{}/logmodel.ckpt'.format(self.param))
+            if not os.path.exists(data_dir+'model_{}'.format(self.param)):
+                os.mkdir(data_dir+'model_{}'.format(self.param))
+            saver.save(sess, data_dir+'model_{}/logmodel.ckpt'.format(self.param))
             self.test()
             
     
     def test(self):
         saver = tf.train.Saver(max_to_keep=50)
         with tf.Session() as sess:
-            saver.restore(sess, data_dir+'model-noemb_{}/logmodel.ckpt'.format(self.param))
+            saver.restore(sess, data_dir+'model-1to1_{}/logmodel.ckpt'.format(self.param))
            
             rank_ic = np.zeros((self.day_sample-self.vali_test, 44, 4))
             embedding = self.data.embedding[self.data.use_index, :]
@@ -136,13 +138,13 @@ class Model():
                     else:
                         continue
                     label = self.data.ar_ic[self.data.use_index, day, 2]
-                    feed_dict = {self.factor: feature, self.factor_index: [fac_idx], self.ic: label}
+                    feed_dict = {self.embedding: embedding, self.factor: feature, self.factor_index: [fac_idx], self.ic: label}
                     new_f, loss_val = sess.run([self.new_f, self.cost], feed_dict=feed_dict)
                     for ic_idx in range(4):
                         rank_ic[count_day, fac_idx, ic_idx] = stats.spearmanr(self.data.ar_ic[self.data.use_index, day, ic_idx], new_f)[0]
             avg_ic = rank_ic.mean(axis=0)[:, 2]
             print(np.abs(avg_ic).mean())
-            pd.DataFrame(np.abs(avg_ic)).to_csv(data_dir+'model-noemb_{}/test.csv'.format(self.param))              
+            pd.DataFrame(np.abs(avg_ic)).to_csv(data_dir+'model-1to1_{}/test.csv'.format(self.param))              
             
             rank_ic = np.zeros((self.day_sample-self.vali_test, 44, 4))
             for count_day, day in enumerate(range(self.vali_test, self.day_sample)):#batch_num
@@ -152,7 +154,7 @@ class Model():
                         rank_ic[count_day, fac_idx, ic_idx] = np.nan_to_num(stats.spearmanr(self.data.ar_ic[self.data.use_index, day, ic_idx], feature)[0])
             avg_ic = rank_ic.mean(axis=0)[:, 2]
             print(np.abs(avg_ic).mean())            
-            pd.DataFrame(np.abs(avg_ic)).to_csv(data_dir+'model-noemb_{}/test_baseline.csv'.format(self.param))              
+            pd.DataFrame(np.abs(avg_ic)).to_csv(data_dir+'model-1to1_{}/test_baseline.csv'.format(self.param))              
             
 
 
