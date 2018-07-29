@@ -50,12 +50,12 @@ class Model():
         self.factor_index = tf.placeholder(tf.int32, shape=[1], name='factor_index')
         self.ic = tf.placeholder(tf.float32, shape=[len(self.data.use_index)], name='ic')
         
-        self.u_bias = tf.get_variable('u_bias', shape=[44, 32], initializer=tf.truncated_normal_initializer(stddev=1.0))
+        self.u_bias = tf.get_variable('u_bias', shape=[44, 32])
         
         self.u_bias_select = tf.nn.embedding_lookup(self.u_bias, self.factor_index)
         
         self.hidden = tf.matmul(self.embedding, tf.transpose(self.u_bias_select))
-        self.confidence = tf.exp(self.hidden) / tf.reduce_sum(tf.exp(self.hidden))
+        self.confidence = self.hidden
         
         self.new_f = tf.reshape(self.confidence, [-1])
         mean, var = tf.nn.moments(self.new_f, axes=[0])
